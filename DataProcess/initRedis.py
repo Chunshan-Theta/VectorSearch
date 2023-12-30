@@ -20,7 +20,7 @@ def embedding(text):
 
 
 
-REDIS_HOST =  "localhost"
+REDIS_HOST =  "redis"
 REDIS_PORT = 6379
 REDIS_PASSWORD = "" # default for passwordless Redis
 

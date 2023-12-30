@@ -20,7 +20,7 @@ def embedding(text):
 
 
 
-REDIS_HOST =  "127.0.0.1"
+REDIS_HOST =  "redis"
 REDIS_PORT = 6379
 REDIS_PASSWORD = "" # default for passwordless Redis
 
@@ -40,7 +40,7 @@ CONTENT_COLUME_NAME = "title"
 FIELDS = "text,vec"
 
 def search_redis(
-    redis_client: redis.Redis = redis_client,
+    redis_client: redis.Redis,
     user_query: str,
     index_name: str = INDEX_NAME,
     vector_field: str = VECTOR_COLUME_NAME,
@@ -63,22 +63,25 @@ def search_redis(
     results = redis_client.ft(index_name).search(q, query_params = params_dict)
 
 
-    if print_results:
-        for i, article in enumerate(results.docs):
-            score = 1 - float(article.vector_score)
-            print(f"{i}. {article.title} (Score: {round(score ,3) })")
+    # if print_results:
+    #     for i, article in enumerate(results.docs):
+    #         score = 1 - float(article.vector_score)
+    #         print(f"{i}. {article.title} (Score: {round(score ,3) })")
 
-    return results.docs
+    return [
+        (article.title, 1 - float(article.vector_score))
+        for i, article in enumerate(results.docs)
+    ]
 
 # For using OpenAI to generate query embedding
-text = "台灣需要自己訓練模型嗎"
-print(f"\t\t\t{text}")
-results = search_redis(redis_client, text, k=10)
+# text = "台灣需要自己訓練模型嗎"
+# print(f"\t\t\t{text}")
+# print(search_redis(redis_client, text, k=10))
 
-text = "文章來源"
-print(f"\t\t\t{text}")
-results = search_redis(redis_client, text, k=10)
+# text = "文章來源"
+# print(f"\t\t\t{text}")
+# print(search_redis(redis_client, text, k=10))
 
-text = "訓練模型如何服務公部門"
-print(f"\t\t\t{text}")
-results = search_redis(redis_client, text, k=10)
+# text = "訓練模型如何服務公部門"
+# print(f"\t\t\t{text}")
+# print(search_redis(redis_client, text, k=10))

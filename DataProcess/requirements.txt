@@ -1,0 +1,4 @@
+redis
+requests
+sentence_transformers
+pandas

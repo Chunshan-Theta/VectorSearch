@@ -4,7 +4,7 @@ from typing import List, Any, Dict
 import os
 from .document import *
 from .stages import *
-
+from .vecQuery import *
 def callGpt(
         messages: List[Dict[str,str]],
         temperature: float = 0.3
@@ -40,70 +40,20 @@ assert(checkClient(client))
 
 
 #
-def callGPTByStage(userId: str, Stype: str, userText: str) -> str:
-    
-    if Stype == "intro_bot":
-        stage = stage_intro_bot
-    elif Stype == "intro_unclear_power":
-        stage = stage_intro_unclear_power
-    elif Stype == "intro_discussion":
-        stage = stage_intro_discussion
-    elif Stype == "intro_ask":
-        stage = stage_try_ask
-
-    elif Stype == "intro_reply":
-        stage = stage_try_reply
-
-    else:
-        return "callGPTByStage Done."
+def callGPTByRAG(userId: str, Stype: str, userText: str) -> str:
 
     botReply: str = ""
-    if stage.system == "reply/ans":
-        systemPrompt = stage.situation["role"]+stage.situation["task"]+"\n\nplease Reply base on you know.\n you know:\n"
-        for unit in stage.target['rag']:
-            systemPrompt += "- "+unit[0]+"?"+unit[1]
-            systemPrompt += "\n"
-        
-        prompts = [{
+    backgrounds = search_redis(user_query=text, k=4)
+    prompts = [{
             "role": "system",
-            "content": systemPrompt+"\n 請用中文;zh-tw回應;且回應的篇幅必須簡短"
+            "content": f"reply like a teacher with your background. you background: \n{'\n'.join([i[0] for i in backgrounds])}"
+        },{
+            "role": "user",
+            "content": userText
         }]
-        prompts.append({
-                        "role": "user",
-                        "content": userText
-                    })
+        
         # botReply += "\n***"+"\n***".join([str(unit) for unit in prompts])
         botReply += "\n"+callGpt(prompts, 0.3)
-    elif stage.system == "practice":
-        prompts = [{
-        "role": "system",
-        "content": stage.situation["role"]+stage.situation["task"]
-        }]
-        for unit in stage.target['rag']:
-            prompts.append({
-                        "role": "assistant",
-                        "content": "\n".join(stage.action["toAgent"])
-                    })
-            prompts.append({
-                        "role": "user",
-                        "content": unit[0]
-                    })
-            prompts.append({
-                        "role": "assistant",
-                        "content": unit[1]
-                    })
-        prompts.append({
-                        "role": "assistant",
-                        "content": "\n".join(stage.action["toAgent"])
-                    })
-        prompts.append({
-                        "role": "user",
-                        "content": userText
-                    })
-        # botReply += "\n***"+"\n***".join([str(unit) for unit in prompts])
-        botReply += "\n"+callGpt(prompts, 0.3)
-    if "continuer" in stage.action:
-        botReply +="\n"+stage.action["continuer"]
     return botReply       
 
 
