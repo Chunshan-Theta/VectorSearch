@@ -76,7 +76,10 @@ def read_item(tableName: str = "doc", text: str = "文章來源"):
 
 @app.post("/texts/")
 async def create_item(obj: TextObject):
-    # mainBoard = [[str(uuid.uuid4()),obj.text,embedding(obj.text).astype(np.float32).tobytes()]]
-    # index_documents(redis_client, obj.tableName, pd.DataFrame(mainBoard,columns=("id", "title", "vec")))
+    userText = obj.text
+    randomUUID = str(uuid.uuid4())
+    vec = embedding(obj.text)
+    mainBoard = [[randomUUID,userText,vec]]
+    index_documents(redis_client, obj.tableName, pd.DataFrame(mainBoard,columns=("id", "title", "vec")))
 
     return obj
