@@ -8,6 +8,6 @@ CONTENT_COLUME_NAME = "title"
 TABLE_COLUME_NAME = "tableName"
 
 # Redis Config
-REDIS_HOST =  "127.0.0.1"
+REDIS_HOST =  "redis"
 REDIS_PORT = 6379
 REDIS_PASSWORD = "" # default for passwordless Redis
