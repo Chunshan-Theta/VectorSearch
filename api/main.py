@@ -1,26 +1,22 @@
 from typing import Union
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel
 import initRedis
-from sentence_transformers import SentenceTransformer
-import pandas as pd
-import numpy as np
-from redis.commands.search.query import Query
-import redis
-from initRedis import index_documents
 import uuid
-app = FastAPI()
-origins = [
-    "*"
-]
+from tools import embedding, textToVec, getQuery, getRedis, newVecObj, textsToVecObj
+from configs import *
+from fastapi import FastAPI, Request
 
+
+app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*"]
 )
 
 
@@ -28,41 +24,28 @@ app.add_middleware(
 
 
 class TextObject(BaseModel):
-    tableName: str = "tableName"
-    text: str = "text"
-
-def embedding(text):
-    model = SentenceTransformer('sentence-transformers/all-distilroberta-v1')
-    return model.encode(text)
+    tableName: str = "doc"
+    text: str = "文章來源"
 
 
-# Connect to Redis
-REDIS_HOST =  "127.0.0.1"
-REDIS_PORT = 6379
-REDIS_PASSWORD = "" # default for passwordless Redis
-INDEX_NAME = "embeddings-index"           # name of the search index
 
-redis_client = redis.Redis(
-    host=REDIS_HOST,
-    port=REDIS_PORT,
-    password=REDIS_PASSWORD
-)
-assert(redis_client.ping())
 
+redis_client = getRedis()
 
 
 @app.get("/texts/")
-def read_item(tableName: str = "doc", text: str = "文章來源"):
+def read_item(request: Request, tableName: str = "doc", text: str = "文章來源"):
+    client_IP = request.client.host
+
     #vectorize the query
     k=5
     vector_field = "vec"
-    query_vector = embedding(text).astype(np.float32).tobytes()
+    query_vector = textToVec(text)
 
     #prepare the query
     sql = f'(@tableName:{tableName})=>[KNN {k} @{vector_field} $vec_param AS vector_score]'
     # sql = f'(*)=>[KNN {k} @{vector_field} $vec_param AS vector_score]'
-    q = Query(sql).sort_by('vector_score').paging(0,k).dialect(2)
-    print(f"sql:{sql}")
+    q = getQuery(sql).sort_by('vector_score').paging(0,k).dialect(2)
     
     params_dict = {"vec_param": query_vector}
     #Execute the query
@@ -70,16 +53,24 @@ def read_item(tableName: str = "doc", text: str = "文章來源"):
     # for i, article in enumerate(results.docs):
     #     print(f"{i}. {article.title} (Score: {round(1 - float(article.vector_score) ,3) })")
     #     print(article)
-    return {"tableName": tableName, "text": text, "similar": [(article.title, 1 - float(article.vector_score)) for i, article in enumerate(results.docs)]}
+    return {
+        "client_IP": client_IP,
+        "tableName": tableName, 
+        "text": text, 
+        "similar": [(article.title, 1 - float(article.vector_score)) for i, article in enumerate(results.docs)]
+    }
 
 
 
 @app.post("/texts/")
-async def create_item(obj: TextObject):
+async def create_item(request: Request, obj: TextObject):
+    client_IP = request.client.host
     userText = obj.text
     randomUUID = str(uuid.uuid4())
-    vec = embedding(obj.text)
-    mainBoard = [[randomUUID,userText,vec]]
-    index_documents(redis_client, obj.tableName, pd.DataFrame(mainBoard,columns=("id", "title", "vec")))
+    newVecObj(redis_client, obj.tableName, textsToVecObj([obj.text],[randomUUID]))
 
-    return obj
+    return {
+        "obj": obj,
+        "uuid": randomUUID,
+        "client_IP": client_IP
+    }

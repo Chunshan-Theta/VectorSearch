@@ -14,63 +14,16 @@ import requests
 from typing import List
 from sentence_transformers import SentenceTransformer
 import re
-def embedding(text):
-    model = SentenceTransformer('sentence-transformers/all-distilroberta-v1')
-    return model.encode(text)
+from tools import embedding, getRedis, loadDefText, textsToVecObj, newVecObj
+from configs import *
 
-
-
-REDIS_HOST =  "127.0.0.1"
-REDIS_PORT = 6379
-REDIS_PASSWORD = "" # default for passwordless Redis
 
 # Connect to Redis
-redis_client = redis.Redis(
-    host=REDIS_HOST,
-    port=REDIS_PORT,
-    password=REDIS_PASSWORD
-)
-assert(redis_client.ping())
-
+redis_client = getRedis()
 # load data and convert vec to number from string
+texts = loadDefText()
+data = textsToVecObj(texts)
 
-texts = []
-windowsSize = 1
-with open("./source.txt") as f:
-    for line in f.readlines():
-        line = line.strip()
-        if line == "":
-            continue
-        # print("text:",line)
-        subString = [i for i in re.split('，|;|\'|\?|\~|!|&|=|。|；',line) if len(i)>1]
-        # print(f"subString: {subString}")
-        texts.extend(["，".join(subString[idx-windowsSize:idx+windowsSize]) for idx in range(windowsSize,len(subString)-windowsSize)])
-# print(f"texts: {texts}")
-output = [ embedding(sentence) for sentence in texts]
-
-embeddings = pd.DataFrame(output)
-# print(f"len(text): {len(texts)}")
-# print(embeddings)
-
-mainBoard = []
-for idx in range(len(texts)):
-    vec = list(embeddings.iloc[idx])
-    text = texts[idx]
-    mainBoard.append([idx,text,vec])
-
-data = pd.DataFrame(mainBoard,columns=("id", "title", "vec"))
-# print(f"data:\n{data}")
-
-# Create Redis Table
-VECTOR_DIM = len(data['vec'][0]) # length of the vectors
-VECTOR_NUMBER = len(data)                 # initial number of vectors
-INDEX_NAME = "embeddings-index"           # name of the search index
-PREFIX = "doc"                            # prefix for the document keys
-DISTANCE_METRIC = "COSINE"                # distance metric for the vectors (ex. COSINE, IP, L2)
-VECTOR_COLUME_NAME = "vec"
-CONTENT_COLUME_NAME = "title"
-TABLE_COLUME_NAME = "tableName"
-print(f"VECTOR_DIM: {VECTOR_DIM}")
 
 # Define RediSearch fields for each of the columns in the dataset
 text = TextField(name=CONTENT_COLUME_NAME)
@@ -80,7 +33,7 @@ text_embedding = VectorField(VECTOR_COLUME_NAME,
         "TYPE": "FLOAT32",
         "DIM": VECTOR_DIM,
         "DISTANCE_METRIC": DISTANCE_METRIC,
-        "INITIAL_CAP": VECTOR_NUMBER,
+        "INITIAL_CAP": len(data),
     }
 )
 fields = [text, tableName, text_embedding]
@@ -96,16 +49,6 @@ except:
         definition = IndexDefinition(prefix=[PREFIX], index_type=IndexType.HASH)
 )
 
-def index_documents(client: redis.Redis, prefix: str, documents: pd.DataFrame):
-    records = documents.to_dict("records")
-    for doc in records:
-        key = f"{prefix}:{str(doc['id'])}"
 
-        # replace list of floats with byte vectors
-        doc[VECTOR_COLUME_NAME] = np.array(doc[VECTOR_COLUME_NAME]).astype(np.float32).tobytes()
-        doc['tableName'] = prefix
-        # print(f"size: {len(doc[VECTOR_COLUME_NAME])}")
-        # print(f"doc:\n{doc}")
-        client.hset(key, mapping = doc)
-index_documents(redis_client, PREFIX, data)
+newVecObj(redis_client, PREFIX, data)
 print(f"Loaded {redis_client.info()['db0']['keys']} documents in Redis search index with name: {INDEX_NAME}")
