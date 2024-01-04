@@ -59,7 +59,7 @@ def read_item(request: Request, tableName: str = "doc", text: str = "文章來�
     #     print(f"{i}. {article.title} (Score: {round(1 - float(article.vector_score) ,3) })")
     #     print(article)
     return {
-        "client_headers": client_headers,
+        # "client_headers": client_headers,
         "tableName": tableName, 
         "text": text, 
         "similar": [(article.title, 1 - float(article.vector_score)) for i, article in enumerate(results.docs)]
@@ -78,7 +78,7 @@ async def create_item(request: Request, obj: TextObject):
     newVecObj(redis_client, obj.tableName, textsToVecObj([obj.text],[randomUUID]), 60*60*24*7)
 
     return {
+        # "client_headers": client_headers,
         "obj": obj,
-        "uuid": randomUUID,
-        "client_headers": client_headers
+        "uuid": randomUUID
     }
