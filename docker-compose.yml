@@ -1,13 +1,13 @@
 ---
 version: "3.8"
 services:
-  web:
+  app:
     image: python:3.10.13
-    ports:
-      - "8000:8000"
+    # ports:
+    #   - "8000:8000"
     volumes:
       - ./api:/app
-    command: sh -c "cd /app && rm -rf .git/hooks && pip install -r requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8000"
+    command: sh -c "cd /app && rm -rf .git/hooks && pip install -r requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*' "
     depends_on:
       redis:
         condition: service_healthy
@@ -24,3 +24,20 @@ services:
         timeout: 10s
         retries: 5
 
+  nginx:
+    restart: unless-stopped
+    image: nginx
+    container_name: nginx
+    ports:
+      - "80:80"
+      # - "443:443"
+    volumes:
+      - ./nginx:/etc/nginx/user_conf.d:ro
+      # - letsencrypt:/etc/letsencrypt
+    depends_on:
+      - app
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100k"
+        max-file: "1"

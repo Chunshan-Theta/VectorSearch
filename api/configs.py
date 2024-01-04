@@ -11,3 +11,6 @@ TABLE_COLUME_NAME = "tableName"
 REDIS_HOST =  "redis"
 REDIS_PORT = 6379
 REDIS_PASSWORD = "" # default for passwordless Redis
+
+# Server
+ALLOW_IPS = ["*"]

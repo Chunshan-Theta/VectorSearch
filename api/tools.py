@@ -73,7 +73,7 @@ def textsToVecObj(texts: List[str], idxs: List[str] = None):
     return pd.DataFrame(mainBoard,columns=("id", "title", VECTOR_COLUME_NAME))
     
 
-def newVecObj(client: redis.Redis, prefix: str, documents: pd.DataFrame):
+def newVecObj(client: redis.Redis, prefix: str, documents: pd.DataFrame, ttl: int = None):
     records = documents.to_dict("records")
     for doc in records:
         key = f"{prefix}:{str(doc['id'])}"
@@ -84,3 +84,5 @@ def newVecObj(client: redis.Redis, prefix: str, documents: pd.DataFrame):
         # print(f"size: {len(doc[VECTOR_COLUME_NAME])}")
         # print(f"doc:\n{doc}")
         client.hset(key, mapping = doc)
+        if ttl is not None:
+            client.expire(key, ttl) #sec

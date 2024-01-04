@@ -7,8 +7,8 @@ import initRedis
 import uuid
 from tools import embedding, textToVec, getQuery, getRedis, newVecObj, textsToVecObj
 from configs import *
-from fastapi import FastAPI, Request
-
+from fastapi import FastAPI, Request, Header
+from fastapi import HTTPException
 
 app = FastAPI()
 app.add_middleware(
@@ -28,14 +28,19 @@ class TextObject(BaseModel):
     text: str = "文章來源"
 
 
-
+def earlyQuit(ip: str):
+    if ip not in ALLOW_IPS and '*' not in ALLOW_IPS:
+        raise HTTPException(status_code=400, detail="NOT support you")
 
 redis_client = getRedis()
 
 
 @app.get("/texts/")
 def read_item(request: Request, tableName: str = "doc", text: str = "文章來源"):
-    client_IP = request.client.host
+    # client_IP = request.client.host
+    client_headers = request.headers
+    # earlyQuit(client_IP)
+
 
     #vectorize the query
     k=5
@@ -54,7 +59,7 @@ def read_item(request: Request, tableName: str = "doc", text: str = "文章來�
     #     print(f"{i}. {article.title} (Score: {round(1 - float(article.vector_score) ,3) })")
     #     print(article)
     return {
-        "client_IP": client_IP,
+        "client_headers": client_headers,
         "tableName": tableName, 
         "text": text, 
         "similar": [(article.title, 1 - float(article.vector_score)) for i, article in enumerate(results.docs)]
@@ -64,13 +69,16 @@ def read_item(request: Request, tableName: str = "doc", text: str = "文章來�
 
 @app.post("/texts/")
 async def create_item(request: Request, obj: TextObject):
-    client_IP = request.client.host
+    # client_IP = request.client.host
+    client_headers = request.headers
+    # earlyQuit(client_IP)
+
     userText = obj.text
     randomUUID = str(uuid.uuid4())
-    newVecObj(redis_client, obj.tableName, textsToVecObj([obj.text],[randomUUID]))
+    newVecObj(redis_client, obj.tableName, textsToVecObj([obj.text],[randomUUID]), 60*60*24*7)
 
     return {
         "obj": obj,
         "uuid": randomUUID,
-        "client_IP": client_IP
+        "client_headers": client_headers
     }
