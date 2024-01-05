@@ -2,6 +2,7 @@
 version: "3.8"
 services:
   app:
+    restart: unless-stopped
     image: python:3.10.13
     # ports:
     #   - "8000:8000"
@@ -12,6 +13,7 @@ services:
       redis:
         condition: service_healthy
   redis:
+    restart: unless-stopped
     image: redis/redis-stack
     # ports:
     #   - '6379:6379'
