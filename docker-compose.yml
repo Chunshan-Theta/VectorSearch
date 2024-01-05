@@ -29,10 +29,10 @@ services:
     image: nginx
     container_name: nginx
     ports:
-      - "80:80"
+      - "8080:80"
       # - "443:443"
     volumes:
-      - ./nginx:/etc/nginx/user_conf.d:ro
+      - ./nginx:/etc/nginx/conf.d:ro
       # - letsencrypt:/etc/letsencrypt
     depends_on:
       - app
